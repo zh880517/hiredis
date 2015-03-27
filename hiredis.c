@@ -799,6 +799,7 @@ int redisBufferReadWithTimeout(redisContext *c, int timeout) {
         return __redisBufferRead(c);
     } else if (pollres == 0) {
         /* timeout reached */
+        __redisSetError(c, REDIS_ERR_OTHER, "Waiting for a reply timed out");
         return REDIS_ERR;
     } else if (pollres == -1) {
         __redisSetError(c, REDIS_ERR_IO, NULL);
