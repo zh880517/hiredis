@@ -459,10 +459,10 @@ static void test_blocking_connection_timeouts(struct config config) {
     c = connect(config);
     test("Does not return a reply when the command times out: ");
     const char *cmd = "DEBUG SLEEP 10\r\n";
-    write(c->fd, cmd, strlen(cmd));
+    ssize_t written = write(c->fd, cmd, strlen(cmd));
 
     reply = redisCommandWithTimeout(c, 2000, "GET foo");
-    test_cond(reply == NULL &&
+    test_cond(written > 0 && reply == NULL &&
               c->err == REDIS_ERR_OTHER &&
               strcmp(c->errstr,"Waiting for a reply timed out") == 0);
 
