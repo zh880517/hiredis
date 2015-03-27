@@ -448,32 +448,25 @@ static void test_blocking_connection_timeouts(struct config config) {
     redisReply *reply;
 
     c = connect(config);
-
     test("Successfully completes a command when the timeout is not exceeded: ");
     redisCommand(c, "SET foo fast");
     reply = redisCommandWithTimeout(c, 10, "GET foo");
     test_cond(reply->type == REDIS_REPLY_STRING &&
               memcmp(reply->str, "fast", 4) == 0);
     freeReplyObject(reply);
+    disconnect(c,0);
 
-    /* This test should ultimately be in the test suite, but getting
-       the sleep to work in coordination with the timeout call has
-       proven to be a challenge. It is commented until it can be
-       sorted out. It has been manually verified to work properly. */
-
-    /*
+    c = connect(config);
     test("Does not return a reply when the command times out: ");
-    redisContext *n;
-    n = redisConnectNonBlock(config.tcp.host, config.tcp.port);
-    redisCommand(c,"SET foo fast");
-    redisCommand(n, "DEBUG SLEEP 10");
-    sleep(2);
-    reply = redisCommandWithTimeout(c, 10, "GET foo");
-    test_cond(reply == NULL);
-    redisFree(n);
-    */
+    const char *cmd = "DEBUG SLEEP 10\r\n";
+    write(c->fd, cmd, strlen(cmd));
 
-    disconnect(c, 0);
+    reply = redisCommandWithTimeout(c, 2000, "GET foo");
+    test_cond(reply == NULL &&
+              c->err == REDIS_ERR_OTHER &&
+              strcmp(c->errstr,"Waiting for a reply timed out") == 0);
+
+    redisFree(c);
 }
 
 static void test_blocking_io_errors(struct config config) {
@@ -763,6 +756,7 @@ int main(int argc, char **argv) {
     cfg.type = CONN_TCP;
     test_blocking_connection(cfg);
     test_blocking_connection_timeouts(cfg);
+
     test_blocking_io_errors(cfg);
     test_invalid_timeout_errors(cfg);
     test_append_formatted_commands(cfg);
